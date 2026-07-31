@@ -1,0 +1,17 @@
+KL V1.0 GitHub 上传说明
+
+请把这个文件夹中的以下文件全部上传到 GitHub 仓库根目录：
+
+index.html
+404.html
+styles.css
+app.js
+manifest.json
+sw.js
+icon-192.png
+icon-512.png
+.nojekyll
+
+README.txt 和 UPLOAD_GUIDE.txt 可以一起上传，也可以不上传。
+
+上传完成后点击绿色的 Commit changes。
