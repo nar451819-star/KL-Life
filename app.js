@@ -7,7 +7,7 @@ const SCHEMA_VERSION = 1;
 const state = loadState();
 let currentMonth = startOfMonth(new Date());
 let selectedDate = startOfDay(new Date());
-let activeView = 'month-view';
+let activeView = 'dashboard-view';
 let modalContext = null;
 
 const $ = (id) => document.getElementById(id);
@@ -107,7 +107,9 @@ function showView(id) {
 }
 
 function renderActive() {
+  if (activeView === 'dashboard-view') renderDashboard();
   if (activeView === 'month-view') renderMonth();
+  if (activeView === 'expense-view') renderExpense();
   if (activeView === 'day-view') renderDay();
   if (activeView === 'study-view') renderStudy();
   if (activeView === 'dream-view') renderDreams();
@@ -168,6 +170,64 @@ function birthdayVisible() {
   return `${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}` === state.profile.birthday;
 }
 
+
+function renderDashboard() {
+  const s = calculateMonth();
+  const tasks = allTasks();
+  const done = tasks.filter(t => t.completedAt).length;
+  const studyPct = tasks.length ? Math.round(done / tasks.length * 100) : 0;
+  const dreamSaved = state.dreams.reduce((sum,d)=>sum+Number(d.savedAmount||0),0);
+  $('dashboard-view').innerHTML = `
+    <div class="dashboard-hero">
+      <h1>今天。</h1>
+      <p>${escapeHtml(currentMessage(s))}</p>
+    </div>
+    <div class="module-grid">
+      <button class="module-card income" data-action="income">
+        <div><div class="module-icon">💰</div><div class="module-title">收入</div></div>
+        <div class="module-summary">本月 ${yen(s.totalIncome)}<br>工资、奖学金与储蓄</div>
+      </button>
+      <button class="module-card expense" data-action="expense">
+        <div><div class="module-icon">🧾</div><div class="module-title">支出</div></div>
+        <div class="module-summary">本月 ${yen(s.expenses)}<br>分类与每日流水</div>
+      </button>
+      <button class="module-card study-module" data-action="study">
+        <div><div class="module-icon">📚</div><div class="module-title">学习</div></div>
+        <div class="module-summary">总体完成 ${studyPct}%<br>目标、阶段与任务</div>
+      </button>
+      <button class="module-card dream-module" data-action="dreams">
+        <div><div class="module-icon">🌈</div><div class="module-title">梦想</div></div>
+        <div class="module-summary">累计 ${yen(dreamSaved)}<br>目标与储蓄进度</div>
+      </button>
+    </div>`;
+}
+
+function renderExpense() {
+  const events = monthEvents().filter(e => e.type === 'expense');
+  const total = sum(events, 'amount');
+  const grouped = {};
+  events.forEach(e => {
+    const key = e.category || '其他';
+    grouped[key] = (grouped[key] || 0) + Number(e.amount || 0);
+  });
+  const categories = Object.entries(grouped).sort((a,b)=>b[1]-a[1]);
+  $('expense-view').innerHTML = `
+    <button class="back-button" data-action="dashboard">‹ 返回首页</button>
+    <div class="page-header">
+      <div><div class="page-title">支出</div><div class="page-subtitle">${currentMonth.getFullYear()}年${currentMonth.getMonth()+1}月</div></div>
+      <button class="pill-button" data-action="quick-expense">＋ 记一笔</button>
+    </div>
+    <div class="card finance">${dataRow('本月总支出', yen(total))}${dataRow('记录笔数', `${events.length} 笔`)}</div>
+    <div class="card" style="margin-top:14px">
+      <h3 style="margin-top:0">分类</h3>
+      ${categories.length ? categories.map(([name,amount])=>`<div class="expense-category"><span>${escapeHtml(name)}</span><strong>${yen(amount)}</strong></div>`).join('') : '<div class="empty-state">本月还没有支出记录。</div>'}
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3 style="margin-top:0">最近记录</h3>
+      ${events.length ? [...events].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)).slice(0,20).map(e=>`<div class="data-row"><span>${escapeHtml(e.title)}<br><small class="muted">${e.date} · ${escapeHtml(e.category||'其他')}</small></span><strong>${yen(e.amount)}</strong></div>`).join('') : '<div class="empty-state">暂无记录。</div>'}
+    </div>`;
+}
+
 function renderMonth() {
   const s = calculateMonth();
   const monthLabel = new Intl.DateTimeFormat('zh-CN',{year:'numeric',month:'long'}).format(currentMonth);
@@ -179,6 +239,8 @@ function renderMonth() {
     </div>` : '';
 
   $('month-view').innerHTML = `
+    <button class="back-button" data-action="dashboard">‹ 返回首页</button>
+    <div class="page-header"><div><div class="page-title">收入</div><div class="page-subtitle">工资、奖学金、储蓄与月历</div></div></div>
     ${birthday}
     <div class="month-message">${escapeHtml(currentMessage(s))}</div>
     <div class="metric-grid">
@@ -259,7 +321,7 @@ function renderDay() {
   const dayLabel = new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'long'}).format(selectedDate);
 
   $('day-view').innerHTML = `
-    <button class="back-button" data-action="home">‹ 返回月份</button>
+    <button class="back-button" data-action="dashboard">‹ 返回首页</button>
     <div class="page-header">
       <div>
         <div class="page-title">${dayLabel}</div>
@@ -324,7 +386,7 @@ function renderStudy() {
   const done = tasks.filter(t => t.completedAt).length;
   const progress = tasks.length ? done/tasks.length : 0;
   $('study-view').innerHTML = `
-    <button class="back-button" data-action="home">‹ 返回月份</button>
+    <button class="back-button" data-action="dashboard">‹ 返回首页</button>
     <div class="page-header">
       <div><div class="page-title">学习计划</div><div class="page-subtitle">计划负责方向，记录负责进度。</div></div>
       <button class="pill-button" data-action="add-stage">＋ 阶段</button>
@@ -362,7 +424,7 @@ function stageTemplate(stage) {
 
 function renderDreams() {
   $('dream-view').innerHTML = `
-    <button class="back-button" data-action="home">‹ 返回月份</button>
+    <button class="back-button" data-action="dashboard">‹ 返回首页</button>
     <div class="page-header">
       <div><div class="page-title">愿望</div><div class="page-subtitle">每月收入的 10%，可以分配给真正想做的事。</div></div>
       <button class="pill-button" data-action="add-dream">＋ 愿望</button>
@@ -391,7 +453,7 @@ function dreamTemplate(dream) {
 function renderReport() {
   const s = calculateMonth();
   $('report-view').innerHTML = `
-    <button class="back-button" data-action="home">‹ 返回月份</button>
+    <button class="back-button" data-action="dashboard">‹ 返回首页</button>
     <div class="page-header"><div><div class="page-title">${currentMonth.getFullYear()}年${currentMonth.getMonth()+1}月回顾</div><div class="page-subtitle">自动汇总真实记录。</div></div></div>
     <div class="card report-section">
       <h3>💅 工作</h3>
@@ -425,7 +487,7 @@ function renderReport() {
 function renderSettings() {
   const totalRegular = state.savings.baseRegularSavings + state.savings.confirmations.reduce((s,c)=>s+Number(c.regularAmount||0),0);
   $('settings-view').innerHTML = `
-    <button class="back-button" data-action="home">‹ 返回月份</button>
+    <button class="back-button" data-action="dashboard">‹ 返回首页</button>
     <div class="page-header"><div><div class="page-title">设置与数据</div><div class="page-subtitle">数据默认保存在当前设备浏览器。</div></div></div>
     <div class="card">
       ${dataRow('姓名', escapeHtml(state.profile.name))}
@@ -710,6 +772,13 @@ document.addEventListener('click', event => {
   if (actionEl) {
     const action = actionEl.dataset.action;
     if (action==='home') showView('month-view');
+    if (action==='dashboard') showView('dashboard-view');
+    if (action==='income') showView('month-view');
+    if (action==='expense') showView('expense-view');
+    if (action==='quick-expense') {
+      selectedDate = startOfDay(new Date());
+      openEventModal('expense');
+    }
     if (action==='open-menu') openMenu();
     if (action==='prev-month') { currentMonth = new Date(currentMonth.getFullYear(),currentMonth.getMonth()-1,1); renderMonth(); }
     if (action==='next-month') { currentMonth = new Date(currentMonth.getFullYear(),currentMonth.getMonth()+1,1); renderMonth(); }
@@ -769,4 +838,4 @@ $('modal').addEventListener('click', e => { if(e.target===$('modal')) closeModal
 $('import-file').addEventListener('change', e => { if(e.target.files[0]) importData(e.target.files[0]); });
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(console.error);
-showView('month-view');
+showView('dashboard-view');

@@ -131,3 +131,17 @@ button{cursor:pointer}
   .day-cell{min-height:70px}
   .brand-copy small{display:none}
 }
+
+.dashboard-hero{margin-bottom:14px;padding:18px;border-radius:26px;background:linear-gradient(135deg,#fff,#fff4f7);box-shadow:var(--shadow)}
+.dashboard-hero h1{margin:0;font-size:28px;font-weight:900}
+.dashboard-hero p{margin:7px 0 0;color:var(--muted);font-size:13px}
+.module-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.module-card{border:0;border-radius:26px;padding:20px 16px;min-height:156px;text-align:left;color:var(--text);box-shadow:var(--shadow);display:flex;flex-direction:column;justify-content:space-between}
+.module-card.income{background:var(--rose-soft)}
+.module-card.expense{background:var(--blue-soft)}
+.module-card.study-module{background:var(--sage-soft)}
+.module-card.dream-module{background:var(--gold-soft)}
+.module-icon{font-size:31px}.module-title{font-size:22px;font-weight:900;margin-top:12px}
+.module-summary{font-size:12px;color:var(--muted);line-height:1.5;margin-top:8px}
+.expense-category{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(70,63,66,.08)}
+.expense-category:last-child{border-bottom:0}
