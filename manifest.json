@@ -1,9 +1,7 @@
 {
   "name": "KL · Keep Life",
   "short_name": "KL",
-  "description": "记录工作、学习、收支与愿望的个人生活系统。",
-  "start_url": "./index.html",
-  "scope": "./",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#fff9f3",
   "theme_color": "#fff9f3",

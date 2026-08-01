@@ -1,69 +1,43 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#fff9f3">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="KL">
-  <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="styles.css">
-  <title>KL · Keep Life</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#fff9f3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="KL">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="styles.css">
+<title>KL · Keep Life</title>
 </head>
 <body>
-  <div id="app" class="app-shell">
-    <header class="topbar">
-      <button class="brand-button" data-action="dashboard" aria-label="返回首页">
-        <span class="brand-mark">KL</span>
-        <span class="brand-copy">
-          <strong>Keep Life</strong>
-          <small>把今天，留给未来的自己。</small>
-        </span>
-      </button>
-      <button class="icon-button" data-action="open-menu" aria-label="打开菜单">•••</button>
-    </header>
+<div class="app">
+<header class="topbar">
+  <button class="brand" data-action="home">
+    <span class="logo">KL</span>
+    <span><strong>Keep Life</strong><small>把今天，留给未来的自己。</small></span>
+  </button>
+  <button class="icon-btn" data-action="settings">•••</button>
+</header>
+<main>
+  <section id="home-view" class="view active"></section>
+  <section id="work-view" class="view"></section>
+  <section id="finance-view" class="view"></section>
+  <section id="study-view" class="view"></section>
+  <section id="life-view" class="view"></section>
+  <section id="day-view" class="view"></section>
+  <section id="settings-view" class="view"></section>
+</main>
+</div>
 
-    <main>
-      <section id="dashboard-view" class="view active"></section>
-      <section id="month-view" class="view"></section>
-      <section id="expense-view" class="view"></section>
-      <section id="day-view" class="view"></section>
-      <section id="study-view" class="view"></section>
-      <section id="dream-view" class="view"></section>
-      <section id="report-view" class="view"></section>
-      <section id="settings-view" class="view"></section>
-    </main>
+<div id="overlay" class="overlay">
+  <div class="modal">
+    <div class="modal-head"><h2 id="modal-title"></h2><button class="icon-btn compact" data-action="close-modal">×</button></div>
+    <div id="modal-body"></div>
   </div>
-
-  <button id="fab" class="fab hidden" data-action="open-add-sheet" aria-label="新增记录">＋</button>
-
-  <div id="sheet" class="overlay">
-    <div class="bottom-sheet">
-      <div class="sheet-handle"></div>
-      <h2>添加到这一天</h2>
-      <button class="sheet-option" data-event-type="work">💅 工作记录</button>
-      <button class="sheet-option" data-event-type="study">📚 学习记录</button>
-      <button class="sheet-option" data-event-type="expense">💰 日支出</button>
-      <button class="sheet-option" data-event-type="scholarship">🎓 奖学金收入</button>
-      <button class="sheet-option" data-event-type="dream">🌈 愿望储蓄</button>
-      <button class="sheet-option" data-action="edit-day-note">📝 今日一句</button>
-      <button class="secondary-button" data-action="close-sheet">取消</button>
-    </div>
-  </div>
-
-  <div id="modal" class="overlay modal-overlay">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h2 id="modal-title"></h2>
-        <button class="icon-button compact" data-action="close-modal">×</button>
-      </div>
-      <div id="modal-content"></div>
-    </div>
-  </div>
-
-  <input id="import-file" type="file" accept="application/json,.json" hidden>
-  <script src="app.js"></script>
+</div>
+<input id="import-file" type="file" accept=".json,application/json" hidden>
+<script src="app.js"></script>
 </body>
 </html>
