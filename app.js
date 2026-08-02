@@ -127,28 +127,26 @@ function renderWork(){
 function workCard(e){return`<div class="list-card work-entry"><div><div class="entry-title">${e.date} · ${e.startTime}–${e.endTime}</div><div class="entry-meta">${yen(e.amount)}${e.designated?' · 指名':''}</div><div class="actions"><button class="text-btn" data-action="edit-work" data-id="${e.id}">编辑</button><button class="text-btn" data-action="delete-event" data-id="${e.id}">删除</button></div></div><strong>${yen(e.amount)}</strong></div>`}
 
 function renderFinance(){
- const s=monthSummary(),todayKey=dkey(new Date()),todayExpense=sum(db.events.filter(e=>e.date===todayKey&&e.type==='expense'),'amount');
- const records=monthEvents().filter(e=>e.type==='expense'||e.type==='scholarship').filter(e=>financeFilter==='all'||e.type===financeFilter);
+ const s=monthSummary(),todayKey=dkey(new Date()),todayExp=sum(db.events.filter(e=>e.date===todayKey&&e.type==='expense'),'amount');
+ const financeEvents=monthEvents().filter(e=>e.type==='expense'||e.type==='scholarship');
+ const filtered=financeFilter==='all'?financeEvents:financeEvents.filter(e=>financeFilter==='expense'?e.type==='expense':e.type==='scholarship');
+ const grouped={};[...filtered].sort((a,b)=>(b.date+(b.time||'')).localeCompare(a.date+(a.time||''))).forEach(e=>(grouped[e.date]??=[]).push(e));
  $('finance-view').innerHTML=`
- <button class="back" data-action="home">‹ 返回首页</button><div class="section-head"><div><div class="page-title">财务</div><div class="subtitle">每天的收入与支出明细。</div></div><button class="pill" data-action="add-expense">＋ 支出</button></div>
- <div class="metric-grid">${metric('今日支出',yen(todayExpense),'blue')}${metric('本月支出',yen(s.exp),'blue')}${metric('本月收入',yen(s.totalIncome))}${metric('本月结余',yen(s.balance),'yellow')}</div>
- <div class="finance-actions"><button class="secondary compact-action" data-action="add-scholarship">＋ 记录奖学金</button></div>
- <div class="finance-filter"><button class="filter-chip ${financeFilter==='all'?'active':''}" data-action="finance-filter" data-filter="all">全部</button><button class="filter-chip ${financeFilter==='expense'?'active':''}" data-action="finance-filter" data-filter="expense">支出</button><button class="filter-chip ${financeFilter==='scholarship'?'active':''}" data-action="finance-filter" data-filter="scholarship">收入</button></div>
- <div class="finance-groups">${renderFinanceGroups(records)}</div>`
+ <button class="back" data-action="home">‹ 返回首页</button><div class="section-head"><div><div class="page-title">财务</div><div class="subtitle">按日期记录每一笔收入和支出。</div></div><button class="pill" data-action="add-expense">＋ 支出</button></div>
+ <div class="metric-grid">${metric('今日支出',yen(todayExp),'blue')}${metric('本月支出',yen(s.exp),'blue')}${metric('本月收入',yen(s.totalIncome))}${metric('本月结余',yen(s.balance),'yellow')}</div>
+ <div class="finance-toolbar"><div class="finance-filters"><button class="filter-btn ${financeFilter==='all'?'active':''}" data-action="finance-filter" data-filter="all">全部</button><button class="filter-btn ${financeFilter==='expense'?'active':''}" data-action="finance-filter" data-filter="expense">支出</button><button class="filter-btn ${financeFilter==='income'?'active':''}" data-action="finance-filter" data-filter="income">收入</button></div><button class="pill" data-action="add-scholarship">＋ 奖学金</button></div>
+ <div class="finance-groups">${Object.keys(grouped).length?Object.entries(grouped).map(([date,list])=>financeDateGroup(date,list)).join(''):'<div class="empty">本月还没有财务记录。</div>'}</div>`
 }
-function renderFinanceGroups(records){
- if(!records.length)return'<div class="empty">本月还没有财务记录。</div>';
- const byDate={};
- records.forEach(e=>(byDate[e.date]||(byDate[e.date]=[])).push(e));
- return Object.keys(byDate).sort((a,b)=>b.localeCompare(a)).map(date=>{
-   const list=byDate[date].sort((a,b)=>(b.time||'').localeCompare(a.time||''));
-   const expense=sum(list.filter(e=>e.type==='expense'),'amount'),income=sum(list.filter(e=>e.type==='scholarship'),'amount');
-   return`<section class="finance-day"><div class="finance-day-head"><div><strong>${formatDateLabel(date)}</strong><small>${date}</small></div><div class="finance-day-total">${income?`收入 ${yen(income)}`:''}${income&&expense?' · ':''}${expense?`支出 ${yen(expense)}`:''}</div></div><div class="list">${list.map(financeCard).join('')}</div></section>`
- }).join('')
+function financeDateGroup(date,list){
+ const exp=sum(list.filter(e=>e.type==='expense'),'amount'),inc=sum(list.filter(e=>e.type==='scholarship'),'amount');
+ const label=new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'short'}).format(parseDate(date));
+ return`<section class="finance-day"><div class="finance-day-head"><div><strong>${label}</strong><span>${date}</span></div><div class="finance-day-total">${inc?`+${yen(inc)} `:''}${exp?`−${yen(exp)}`:''}</div></div><div class="list">${list.map(financeCard).join('')}</div></section>`
 }
-function formatDateLabel(k){return new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'short'}).format(parseDate(k))}
-function expenseEmoji(c){return({吃饭:'🍜',交通:'🚃','房租水电网':'🏠',购物:'🛍️',学习:'📚',医疗:'🏥',娱乐:'🎬',其他:'🧾'})[c]||'🧾'}
-function financeCard(e){const isExpense=e.type==='expense';return`<div class="list-card finance-entry"><div class="finance-entry-main"><div class="finance-icon">${isExpense?expenseEmoji(e.category):'🎓'}</div><div><div class="entry-title">${esc(e.title||e.category||(isExpense?'支出':'奖学金'))}</div><div class="entry-meta">${e.time||'--:--'}${e.category?' · '+esc(e.category):''}</div></div></div><div class="finance-entry-side"><strong class="${isExpense?'expense-amount':'income-amount'}">${isExpense?'-':'+'}${yen(e.amount)}</strong><div class="actions"><button class="text-btn" data-action="edit-money" data-id="${e.id}">编辑</button><button class="text-btn" data-action="delete-event" data-id="${e.id}">删除</button></div></div></div>`}
+function financeCard(e){
+ const isExp=e.type==='expense',icon=isExp?expenseEmoji(e.category):'🎓';
+ return`<div class="list-card finance-entry"><div class="finance-icon">${icon}</div><div class="finance-main"><div class="entry-title">${esc(e.title||e.category||(isExp?'支出':'奖学金'))}</div><div class="entry-meta">${e.time||'--:--'}${e.category?' · '+esc(e.category):''}</div><div class="actions"><button class="text-btn" data-action="edit-money" data-id="${e.id}">编辑</button><button class="text-btn" data-action="delete-event" data-id="${e.id}">删除</button></div></div><strong class="finance-amount ${isExp?'expense':'income'}">${isExp?'−':'+'}${yen(e.amount)}</strong></div>`
+}
+function expenseEmoji(category){return({'吃饭':'🍚','交通':'🚃','房租水电网':'🏠','购物':'🛍️','学习':'📚','医疗':'🏥','娱乐':'🎬','其他':'🧾'})[category]||'🧾'}
 
 function renderStudy(){
  const g=db.studyGoals[0],tasks=allTasks(),done=tasks.filter(t=>t.completedAt).length,p=tasks.length?Math.round(done/tasks.length*100):0;
@@ -171,7 +169,7 @@ function renderDay(){
  <div class="list" style="margin-top:13px">${ev.length?ev.sort((a,b)=>(a.startTime||a.time).localeCompare(b.startTime||b.time)).map(dayEventCard).join(''):'<div class="empty">这一天还没有记录。</div>'}</div>
  <div class="card" style="margin-top:13px"><div class="label">今日一句</div><div class="today-copy">${note?esc(note):'这一天没有留下文字。'}</div></div>`
 }
-function dayEventCard(e){if(e.type==='work')return workCard(e);return`<div class="list-card"><div class="entry-title">${({expense:'🧾',scholarship:'🎓',study:'📚',dream:'🌈'})[e.type]||'•'} ${esc(e.title)}</div><div class="entry-meta">${e.time||e.startTime}${e.category?' · '+esc(e.category):''}${e.amount?' · '+yen(e.amount):''}</div><div class="actions"><button class="text-btn" data-action="delete-event" data-id="${e.id}">删除</button></div></div>`}
+function dayEventCard(e){if(e.type==='work')return workCard(e);return`<div class="list-card"><div class="entry-title">${({expense:'🧾',scholarship:'🎓',study:'📚',dream:'🌈'})[e.type]||'•'} ${esc(e.title)}</div><div class="entry-meta">${e.time||e.startTime}${e.category?' · '+esc(e.category):''}${e.amount?' · '+yen(e.amount):''}</div><div class="actions">${(e.type==='expense'||e.type==='scholarship')?`<button class="text-btn" data-action="edit-money" data-id="${e.id}">编辑</button>`:''}<button class="text-btn" data-action="delete-event" data-id="${e.id}">删除</button></div></div>`}
 
 function renderSettings(){
  const total=db.savings.base+db.savings.confirmations.reduce((a,c)=>a+Number(c.regularAmount||0),0);
@@ -185,8 +183,8 @@ function workModal(existing=null){modalCtx={kind:'work',id:existing?.id||null};m
 function moneyModal(type,title,existing=null){
  modalCtx={kind:type,id:existing?.id||null};
  const cats=['吃饭','交通','房租水电网','购物','学习','医疗','娱乐','其他'];
- const now=new Date().toTimeString().slice(0,5);
- modal(title,`<div class="field"><label>时间</label><input id="money-time" type="time" value="${existing?.time||now}"></div><div class="field"><label>金额</label><input id="money-amount" type="number" inputmode="decimal" value="${existing?.amount||''}"></div>${type==='expense'?`<div class="field"><label>分类</label><select id="money-category">${cats.map(x=>`<option ${existing?.category===x?'selected':''}>${x}</option>`).join('')}</select></div>`:''}<div class="field"><label>备注</label><input id="money-title" value="${esc(existing?.title||'')}" placeholder="${type==='expense'?'例如：午饭':'例如：8月奖学金'}"></div><button class="primary" data-action="save-money">保存</button>`)
+ const now=new Date(),dateValue=existing?.date||dkey(now),timeValue=existing?.time||now.toTimeString().slice(0,5);
+ modal(title,`<div class="field"><label>日期</label><input id="money-date" type="date" value="${dateValue}"></div><div class="field"><label>时间</label><input id="money-time" type="time" value="${timeValue}"></div><div class="field"><label>金额</label><input id="money-amount" type="number" inputmode="decimal" value="${existing?.amount||''}"></div>${type==='expense'?`<div class="field"><label>分类</label><select id="money-category">${cats.map(x=>`<option ${existing?.category===x?'selected':''}>${x}</option>`).join('')}</select></div>`:''}<div class="field"><label>备注</label><input id="money-title" value="${esc(existing?.title||(type==='expense'?'':'奖学金'))}" placeholder="例如：午饭、地铁、房租"></div><button class="primary" data-action="save-money">保存</button>`)
 }
 function addStage(){modal('新增阶段',`<div class="field"><label>阶段名称</label><input id="stage-title"></div><button class="primary" data-action="save-stage">保存</button>`)}
 function addTask(stage){modalCtx={kind:'task',stage};modal('新增任务',`<div class="field"><label>任务名称</label><input id="task-title"></div><div class="field"><label>计划日期</label><input id="task-date" type="date" value="${dkey(new Date())}"></div><button class="primary" data-action="save-task">保存</button>`)}
@@ -204,9 +202,9 @@ document.addEventListener('click',e=>{
  if(a==='add-work')workModal();if(a==='edit-work')workModal(db.events.find(x=>x.id===el.dataset.id));
  if(a==='save-work'){const st=$('start-time').value,en=$('end-time').value,amount=Number($('amount').value||0);if(!st||!en||amount<=0)return alert('请填写完整');if(minutes(en)<=minutes(st))return alert('结束时间必须晚于开始时间');const old=modalCtx.id?db.events.find(x=>x.id===modalCtx.id):null,obj={id:modalCtx.id||uid(),date:old?.date||dkey(selectedDate),type:'work',title:'美甲',startTime:st,endTime:en,time:st,amount,designated:$('designated').value==='true'};if(old)Object.assign(old,obj);else db.events.push(obj);closeModal();save()}
  if(a==='add-expense')moneyModal('expense','新增支出');if(a==='add-scholarship')moneyModal('scholarship','记录奖学金');
- if(a==='edit-money'){const item=db.events.find(x=>x.id===el.dataset.id);if(item)moneyModal(item.type,item.type==='expense'?'编辑支出':'编辑收入',item)}
+ if(a==='edit-money'){const item=db.events.find(x=>x.id===el.dataset.id);if(item)moneyModal(item.type,item.type==='expense'?'编辑支出':'编辑奖学金',item)}
  if(a==='finance-filter'){financeFilter=el.dataset.filter||'all';renderFinance()}
- if(a==='save-money'){const amount=Number($('money-amount').value||0),time=$('money-time').value;if(amount<=0)return alert('请输入金额');if(!time)return alert('请选择时间');const old=modalCtx.id?db.events.find(x=>x.id===modalCtx.id):null;const obj={id:modalCtx.id||uid(),date:old?.date||dkey(new Date()),time,type:modalCtx.kind,title:$('money-title').value.trim()||(modalCtx.kind==='expense'?$('money-category').value:'奖学金'),amount,category:$('money-category')?.value||''};if(old)Object.assign(old,obj);else db.events.push(obj);closeModal();save()}
+ if(a==='save-money'){const amount=Number($('money-amount').value||0),date=$('money-date').value,time=$('money-time').value;if(amount<=0||!date||!time)return alert('请填写完整');const obj={id:modalCtx.id||uid(),date,time,type:modalCtx.kind,title:$('money-title').value.trim()||(modalCtx.kind==='expense'?'支出':'奖学金'),amount,category:$('money-category')?.value||''};const old=modalCtx.id?db.events.find(x=>x.id===modalCtx.id):null;if(old)Object.assign(old,obj);else db.events.push(obj);closeModal();save()}
  if(a==='delete-event'){if(confirm('确定删除吗？')){db.events=db.events.filter(x=>x.id!==el.dataset.id);save()}}
  if(a==='add-stage')addStage();if(a==='save-stage'){const t=$('stage-title').value.trim();if(t)db.studyGoals[0].stages.push({id:uid(),title:t,tasks:[]});closeModal();save()}
  if(a==='add-task')addTask(el.dataset.stage);if(a==='save-task'){const s=db.studyGoals[0].stages.find(x=>x.id===modalCtx.stage),t=$('task-title').value.trim();if(t)s.tasks.push({id:uid(),title:t,plannedDate:$('task-date').value,completedAt:null});closeModal();save()}
