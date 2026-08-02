@@ -126,13 +126,118 @@ function renderWork(){
 function workCard(e){return`<div class="list-card work-entry"><div><div class="entry-title">${e.date} · ${e.startTime}–${e.endTime}</div><div class="entry-meta">${yen(e.amount)}${e.designated?' · 指名':''}</div><div class="actions"><button class="text-btn" data-action="edit-work" data-id="${e.id}">编辑</button><button class="text-btn" data-action="delete-event" data-id="${e.id}">删除</button></div></div><strong>${yen(e.amount)}</strong></div>`}
 
 function renderFinance(){
- const s=monthSummary(),expenses=monthEvents().filter(e=>e.type==='expense'),groups={};expenses.forEach(e=>groups[e.category||'其他']=(groups[e.category||'其他']||0)+Number(e.amount||0));
+ const s=monthSummary();
+ const expenses=monthEvents().filter(e=>e.type==='expense');
+ const incomeEvents=monthEvents().filter(e=>e.type==='scholarship');
+ const todayKey=dkey(new Date());
+ const todayExpense=sum(expenses.filter(e=>e.date===todayKey),'amount');
+ const groups={};
+ expenses.forEach(e=>groups[e.category||'其他']=(groups[e.category||'其他']||0)+Number(e.amount||0));
+
+ const allFinance=[
+   ...expenses.map(e=>({...e,financeKind:'expense'})),
+   ...incomeEvents.map(e=>({...e,financeKind:'income'}))
+ ].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+
+ const groupedByDate={};
+ allFinance.forEach(e=>(groupedByDate[e.date]??=[]).push(e));
+
  $('finance-view').innerHTML=`
- <button class="back" data-action="home">‹ 返回首页</button><div class="section-head"><div><div class="page-title">财务</div><div class="subtitle">收入、支出、储蓄和梦想基金。</div></div><button class="pill" data-action="add-expense">＋ 支出</button></div>
- <div class="metric-grid">${metric('本月收入',yen(s.totalIncome),'blue')}${metric('本月支出',yen(s.exp),'blue')}${metric('本月结余',yen(s.balance))}${metric('梦想储蓄10%',yen(s.dream),'yellow')}</div>
- <div class="card" style="margin-top:13px">${row('美甲工资',yen(s.wage))}${row('奖学金',yen(s.sch))}${row('普通储蓄建议30%',yen(s.regular))}${row('累计普通储蓄',yen(db.savings.base+db.savings.confirmations.reduce((a,c)=>a+Number(c.regularAmount||0),0)))}</div>
- <div class="section-head"><div class="section-title">支出分类</div></div><div class="card">${Object.keys(groups).length?Object.entries(groups).sort((a,b)=>b[1]-a[1]).map(([k,v])=>row(esc(k),yen(v))).join(''):'<div class="empty">本月还没有支出。</div>'}</div>
- <button class="primary" data-action="add-scholarship">记录奖学金</button>`
+ <button class="back" data-action="home">‹ 返回首页</button>
+ <div class="section-head">
+   <div>
+     <div class="page-title">财务</div>
+     <div class="subtitle">每天的收入与支出明细。</div>
+   </div>
+   <button class="pill" data-action="add-expense">＋ 支出</button>
+ </div>
+
+ <div class="metric-grid">
+   ${metric('今日支出',yen(todayExpense),'blue')}
+   ${metric('本月支出',yen(s.exp),'blue')}
+   ${metric('本月收入',yen(s.totalIncome))}
+   ${metric('本月结余',yen(s.balance),'yellow')}
+ </div>
+
+ <div class="card" style="margin-top:13px">
+   ${row('美甲工资',yen(s.wage))}
+   ${row('奖学金',yen(s.sch))}
+   ${row('普通储蓄建议30%',yen(s.regular))}
+   ${row('梦想储蓄建议10%',yen(s.dream))}
+   ${row('累计普通储蓄',yen(db.savings.base+db.savings.confirmations.reduce((a,c)=>a+Number(c.regularAmount||0),0)))}
+ </div>
+
+ <div class="section-head">
+   <div class="section-title">明细</div>
+   <button class="pill" data-action="add-scholarship">＋ 收入</button>
+ </div>
+
+ <div class="finance-filter">
+   <button class="filter-btn active" data-action="finance-filter" data-filter="all">全部</button>
+   <button class="filter-btn" data-action="finance-filter" data-filter="expense">支出</button>
+   <button class="filter-btn" data-action="finance-filter" data-filter="income">收入</button>
+ </div>
+
+ <div id="finance-list" class="list">
+   ${renderFinanceGroups(groupedByDate,'all')}
+ </div>
+
+ <div class="section-head"><div class="section-title">支出分类</div></div>
+ <div class="card">
+   ${Object.keys(groups).length
+      ? Object.entries(groups).sort((a,b)=>b[1]-a[1]).map(([k,v])=>row(esc(k),yen(v))).join('')
+      : '<div class="empty">本月还没有支出。</div>'}
+ </div>`
+}
+
+function renderFinanceGroups(groupedByDate,filter){
+ const dates=Object.keys(groupedByDate).sort((a,b)=>b.localeCompare(a));
+ let html='';
+ for(const date of dates){
+   const items=groupedByDate[date].filter(e=>filter==='all'||e.financeKind===filter);
+   if(!items.length)continue;
+   const dateTotalExpense=sum(items.filter(e=>e.financeKind==='expense'),'amount');
+   html+=`<div class="finance-day">
+     <div class="finance-day-head">
+       <strong>${formatDateLabel(date)}</strong>
+       <span>${dateTotalExpense?`支出 ${yen(dateTotalExpense)}`:''}</span>
+     </div>
+     ${items.map(financeCard).join('')}
+   </div>`;
+ }
+ return html||'<div class="empty">没有对应的记录。</div>'
+}
+
+function financeCard(e){
+ const isExpense=e.financeKind==='expense';
+ return `<div class="list-card finance-entry">
+   <div class="finance-entry-main">
+     <div class="finance-icon">${isExpense?expenseEmoji(e.category):'🎓'}</div>
+     <div>
+       <div class="entry-title">${esc(e.title)}</div>
+       <div class="entry-meta">${e.time||'--:--'}${e.category?' · '+esc(e.category):''}</div>
+     </div>
+   </div>
+   <div class="finance-entry-side">
+     <strong class="${isExpense?'expense-amount':'income-amount'}">${isExpense?'-':'+'}${yen(e.amount)}</strong>
+     <div class="actions">
+       <button class="text-btn" data-action="edit-money" data-id="${e.id}">编辑</button>
+       <button class="text-btn" data-action="delete-event" data-id="${e.id}">删除</button>
+     </div>
+   </div>
+ </div>`
+}
+
+function formatDateLabel(key){
+ const d=parseDate(key);
+ return new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'short'}).format(d)
+}
+
+function expenseEmoji(category){
+ return ({
+   '吃饭':'🍚','交通':'🚃','房租水电网':'🏠','购物':'🛍️',
+   '学习':'📚','医疗':'🏥','娱乐':'🎮','其他':'🧾'
+ })[category]||'🧾'
 }
 
 function renderStudy(){
@@ -167,7 +272,17 @@ function modal(title,body){$('modal-title').textContent=title;$('modal-body').in
 function closeModal(){$('overlay').classList.remove('show');modalCtx=null}
 function editNote(){const k=dkey(selectedDate);modal('今日一句',`<div class="field"><label>今天发生了什么？</label><textarea id="note-input">${esc(db.notes[k]||'')}</textarea></div><button class="primary" data-action="save-note">保存</button>`)}
 function workModal(existing=null){modalCtx={kind:'work',id:existing?.id||null};modal(existing?'编辑工作记录':'新增客人',`<div class="field"><label>开始时间</label><input id="start-time" type="time" value="${existing?.startTime||new Date().toTimeString().slice(0,5)}"></div><div class="field"><label>结束时间</label><input id="end-time" type="time" value="${existing?.endTime||new Date(Date.now()+60*60*1000).toTimeString().slice(0,5)}"></div><div class="field"><label>金额</label><input id="amount" type="number" inputmode="decimal" value="${existing?.amount||''}"></div><div class="field"><label>是否指名</label><select id="designated"><option value="false">否</option><option value="true" ${existing?.designated?'selected':''}>是</option></select></div><button class="primary" data-action="save-work">保存</button>`)}
-function moneyModal(type,title){modalCtx={kind:type};const cats=['吃饭','交通','房租水电网','购物','学习','医疗','娱乐','其他'];modal(title,`<div class="field"><label>内容</label><input id="money-title" value="${type==='expense'?'支出':'奖学金'}"></div><div class="field"><label>金额</label><input id="money-amount" type="number"></div>${type==='expense'?`<div class="field"><label>分类</label><select id="money-category">${cats.map(x=>`<option>${x}</option>`).join('')}</select></div>`:''}<button class="primary" data-action="save-money">保存</button>`)}
+function moneyModal(type,title,existing=null){
+ modalCtx={kind:type,id:existing?.id||null};
+ const cats=['吃饭','交通','房租水电网','购物','学习','医疗','娱乐','其他'];
+ modal(title,`
+ <div class="field"><label>时间</label><input id="money-time" type="time" value="${existing?.time||new Date().toTimeString().slice(0,5)}"></div>
+ <div class="field"><label>金额</label><input id="money-amount" type="number" inputmode="decimal" value="${existing?.amount||''}"></div>
+ ${type==='expense'?`<div class="field"><label>分类</label><select id="money-category">${cats.map(x=>`<option ${existing?.category===x?'selected':''}>${x}</option>`).join('')}</select></div>`:''}
+ <div class="field"><label>备注</label><input id="money-title" value="${esc(existing?.title||(type==='expense'?'支出':'奖学金'))}"></div>
+ <button class="primary" data-action="save-money">保存</button>`)
+}
+
 function addStage(){modal('新增阶段',`<div class="field"><label>阶段名称</label><input id="stage-title"></div><button class="primary" data-action="save-stage">保存</button>`)}
 function addTask(stage){modalCtx={kind:'task',stage};modal('新增任务',`<div class="field"><label>任务名称</label><input id="task-title"></div><div class="field"><label>计划日期</label><input id="task-date" type="date" value="${dkey(new Date())}"></div><button class="primary" data-action="save-task">保存</button>`)}
 function addLifeGoal(){modal('新增 Life 目标',`<div class="field"><label>名称</label><input id="life-title"></div><div class="field"><label>目标金额</label><input id="life-target" type="number"></div><button class="primary" data-action="save-life">保存</button>`)}
@@ -183,8 +298,37 @@ document.addEventListener('click',e=>{
  if(a==='save-note'){db.notes[dkey(selectedDate)]=$('note-input').value.trim();closeModal();save()}
  if(a==='add-work')workModal();if(a==='edit-work')workModal(db.events.find(x=>x.id===el.dataset.id));
  if(a==='save-work'){const st=$('start-time').value,en=$('end-time').value,amount=Number($('amount').value||0);if(!st||!en||amount<=0)return alert('请填写完整');if(minutes(en)<=minutes(st))return alert('结束时间必须晚于开始时间');const old=modalCtx.id?db.events.find(x=>x.id===modalCtx.id):null,obj={id:modalCtx.id||uid(),date:old?.date||dkey(selectedDate),type:'work',title:'美甲',startTime:st,endTime:en,time:st,amount,designated:$('designated').value==='true'};if(old)Object.assign(old,obj);else db.events.push(obj);closeModal();save()}
- if(a==='add-expense')moneyModal('expense','新增支出');if(a==='add-scholarship')moneyModal('scholarship','记录奖学金');
- if(a==='save-money'){const amount=Number($('money-amount').value||0);if(amount<=0)return alert('请输入金额');db.events.push({id:uid(),date:dkey(new Date()),time:new Date().toTimeString().slice(0,5),type:modalCtx.kind,title:$('money-title').value.trim(),amount,category:$('money-category')?.value||''});closeModal();save()}
+ if(a==='add-expense')moneyModal('expense','新增支出');
+ if(a==='add-scholarship')moneyModal('scholarship','记录收入');
+ if(a==='edit-money'){
+   const existing=db.events.find(x=>x.id===el.dataset.id);
+   if(existing)moneyModal(existing.type,existing.type==='expense'?'编辑支出':'编辑收入',existing)
+ }
+ if(a==='save-money'){
+   const amount=Number($('money-amount').value||0);
+   if(amount<=0)return alert('请输入金额');
+   const existing=modalCtx.id?db.events.find(x=>x.id===modalCtx.id):null;
+   const obj={
+     id:modalCtx.id||uid(),
+     date:existing?.date||dkey(new Date()),
+     time:$('money-time').value||new Date().toTimeString().slice(0,5),
+     type:modalCtx.kind,
+     title:$('money-title').value.trim()||(modalCtx.kind==='expense'?'支出':'收入'),
+     amount,
+     category:$('money-category')?.value||''
+   };
+   if(existing)Object.assign(existing,obj);else db.events.push(obj);
+   closeModal();save()
+ }
+ if(a==='finance-filter'){
+   document.querySelectorAll('.filter-btn').forEach(x=>x.classList.toggle('active',x===el));
+   const grouped={};
+   monthEvents().filter(x=>x.type==='expense'||x.type==='scholarship').forEach(x=>{
+     const item={...x,financeKind:x.type==='expense'?'expense':'income'};
+     (grouped[item.date]??=[]).push(item)
+   });
+   $('finance-list').innerHTML=renderFinanceGroups(grouped,el.dataset.filter)
+ }
  if(a==='delete-event'){if(confirm('确定删除吗？')){db.events=db.events.filter(x=>x.id!==el.dataset.id);save()}}
  if(a==='add-stage')addStage();if(a==='save-stage'){const t=$('stage-title').value.trim();if(t)db.studyGoals[0].stages.push({id:uid(),title:t,tasks:[]});closeModal();save()}
  if(a==='add-task')addTask(el.dataset.stage);if(a==='save-task'){const s=db.studyGoals[0].stages.find(x=>x.id===modalCtx.stage),t=$('task-title').value.trim();if(t)s.tasks.push({id:uid(),title:t,plannedDate:$('task-date').value,completedAt:null});closeModal();save()}
